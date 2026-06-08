@@ -2,26 +2,24 @@ require("dotenv").config()
 
 const router = require("./routes")
 const handleError = require("./middleware/handleError")
-const upload = require("./helpers/multer")
 
 const cors = require("cors")
 const express = require("express")
 
 const http = require("http")
 const socketIO = require("socket.io")
-const updateStatusActiveUser = require("./helpers/updateStatusUser")
 const { verifyAccessToken } = require("./helpers/helper")
-const file = upload()
 
 const app = express()
 const server = http.createServer(app)
-const io = socketIO(server, { cors: { origin: "*" } })
+const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173"
+const io = socketIO(server, { cors: { origin: clientOrigin } })
 
-const port = process.env.PORT
+const port = process.env.PORT || 3000
 
 const corsOptions = {
-  origin: "http://localhost:5173",
-  methods: ["GET", "POST"],
+  origin: clientOrigin,
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
 }
 
 app.use(cors(corsOptions))
@@ -36,39 +34,40 @@ app.use(handleError)
 const onlineUsers = {}
 
 io.on("connection", (socket) => {
-  console.log("A user connected")
-
   const { token } = socket.handshake.query
 
   let userId = null
 
-  if (token !== "null") {
-    const data = verifyAccessToken(token)
+  if (token && token !== "null") {
+    try {
+      const data = verifyAccessToken(token)
 
-    userId = data.id
-    onlineUsers[userId] = true
+      userId = data.id
+      onlineUsers[userId] = true
 
-    io.emit("updateOnlineStatus", { userId: userId, status: true })
-    console.log(onlineUsers)
+      io.emit("updateOnlineStatus", { userId, status: true })
+    } catch (error) {
+      socket.disconnect(true)
+      return
+    }
   }
 
   socket.on("typing", () => {
+    if (!userId) return
     io.emit("userTyping", { userId, isTyping: true })
   })
 
   socket.on("stopTyping", () => {
+    if (!userId) return
     io.emit("userTyping", { userId, isTyping: false })
   })
 
   socket.on("disconnect", () => {
-    if (token !== "null") {
-      const data = verifyAccessToken(token)
-      onlineUsers[data.id] = false
+    if (userId) {
+      onlineUsers[userId] = false
 
-      io.emit("updateOnlineStatus", { userId: data.id, status: false })
+      io.emit("updateOnlineStatus", { userId, status: false })
     }
-    console.log(onlineUsers)
-    console.log("User disconnected")
   })
 })
 

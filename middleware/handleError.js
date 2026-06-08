@@ -1,5 +1,7 @@
 const handleError = (err, req, res, next) => {
-  console.log(err)
+  if (process.env.NODE_ENV !== "test") {
+    console.error(err)
+  }
   let code = 500
   let message = "Internal Server Error"
 

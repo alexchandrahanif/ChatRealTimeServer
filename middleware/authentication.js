@@ -4,6 +4,10 @@ const { User } = require("../models/index")
 const authentication = async (req, res, next) => {
   try {
     const { authorization } = req.headers
+    if (!authorization) {
+      throw { name: "Invalid authorization" }
+    }
+
     let payload = verifyAccessToken(authorization)
     let dataUser = await User.findOne({
       where: {
