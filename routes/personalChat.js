@@ -5,6 +5,7 @@ const authentication = require("../middleware/authentication")
 const personalCharRouter = require("express").Router()
 const file = upload()
 
+personalCharRouter.get("/conversations", authentication, Controller.getConversations)
 personalCharRouter.get(
   "/personal/:ReceiverId",
   authentication,

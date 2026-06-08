@@ -109,6 +109,9 @@ class Controller {
     try {
       const { phoneNumber } = req.params
       const data = await Contact.findOne({
+        where: {
+          PemilikId: req.user.id,
+        },
         include: [
           {
             model: User,
@@ -205,6 +208,7 @@ class Controller {
       const data = await Contact.findOne({
         where: {
           id,
+          PemilikId: req.user.id,
         },
       })
 
@@ -212,7 +216,7 @@ class Controller {
         throw { name: "Id Contact Tidak Ditemukan" }
       }
 
-      await Contact.update(body, { where: { id } })
+      await Contact.update(body, { where: { id, PemilikId: req.user.id } })
 
       res.status(200).json({
         statusCode: 200,
@@ -230,6 +234,7 @@ class Controller {
       const data = await Contact.findOne({
         where: {
           id,
+          PemilikId: req.user.id,
         },
       })
 
@@ -240,6 +245,7 @@ class Controller {
       await Contact.destroy({
         where: {
           id,
+          PemilikId: req.user.id,
         },
       })
 

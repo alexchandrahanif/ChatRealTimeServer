@@ -9,6 +9,12 @@ userRouter.post("/register", Controller.register)
 userRouter.post("/login", Controller.login)
 userRouter.post("/verify/:id", Controller.verifyCode)
 userRouter.get("/profile", authentication, Controller.getProfile)
+userRouter.patch(
+  "/profile",
+  authentication,
+  file.single("avatar"),
+  Controller.updateProfile,
+)
 userRouter.get("/", authentication, Controller.getAllUsers)
 userRouter.get("/:phoneNumber", authentication, Controller.getUser)
 userRouter.patch(

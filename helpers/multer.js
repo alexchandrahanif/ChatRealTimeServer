@@ -5,8 +5,12 @@ const upload = () => {
   const storage = multer.diskStorage({
     destination: function (req, file, cb) {
       fs.mkdirSync(`upload/${file.fieldname}/`, { recursive: true })
-      if (file.fieldname === "photoUser") {
+      if (file.fieldname === "avatar") {
+        cb(null, `./upload/avatar/`)
+      } else if (file.fieldname === "photoUser") {
         cb(null, `./upload/photoUser/`)
+      } else {
+        cb(null, `./upload/${file.fieldname}/`)
       }
     },
     filename: function (req, file, cb) {

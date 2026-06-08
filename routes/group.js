@@ -1,7 +1,9 @@
 const Controller = require("../controllers/group")
+const upload = require("../helpers/multer")
 const authentication = require("../middleware/authentication")
 
 const groupRouter = require("express").Router()
+const file = upload()
 
 // MEMBER
 groupRouter.get("/member/:id", authentication, Controller.getMember)
@@ -26,8 +28,8 @@ groupRouter.delete(
 // GROUP
 groupRouter.get("/personal", authentication, Controller.getGroupPersonal)
 groupRouter.get("/:id", authentication, Controller.getOneGroup)
-groupRouter.post("/", authentication, Controller.createGroup)
-groupRouter.patch("/:id", authentication, Controller.updateGroup)
+groupRouter.post("/", authentication, file.single("groupImage"), Controller.createGroup)
+groupRouter.patch("/:id", authentication, file.single("groupImage"), Controller.updateGroup)
 groupRouter.delete("/:id", authentication, Controller.deleteGroup)
 
 module.exports = groupRouter

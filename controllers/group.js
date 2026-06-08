@@ -5,7 +5,7 @@ class Controller {
   // GET ALL
   static async getGroupPersonal(req, res, next) {
     try {
-      const { UserId } = req.user.id
+      const UserId = req.user.id
       const data = await Group.findAll({
         include: [
           {
@@ -21,6 +21,12 @@ class Controller {
                 },
               },
             ],
+          },
+          {
+            model: User,
+            attributes: {
+              exclude,
+            },
           },
         ],
       })
@@ -80,13 +86,15 @@ class Controller {
 
       const data = await Group.create(body)
 
-      MemberId.forEach(async (el) => {
-        await GroupMember.create({
+      const memberIds = Array.isArray(MemberId) ? MemberId : MemberId ? [MemberId] : []
+
+      await Promise.all(memberIds.map((el) => {
+        return GroupMember.create({
           UserId: el,
           GroupId: data.id,
           status: "MEMBER",
         })
-      })
+      }))
 
       await GroupMember.create({
         UserId: req.user.id,

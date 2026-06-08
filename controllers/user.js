@@ -1,5 +1,9 @@
 const formatPhoneNumber = require("../helpers/formatPhoneNumber")
-const { comparePassword, createAccessToken } = require("../helpers/helper")
+const {
+  comparePassword,
+  createAccessToken,
+  hashingPassword,
+} = require("../helpers/helper")
 const emailSend = require("../helpers/nodemailer")
 const { User } = require("../models")
 const moment = require("moment")
@@ -13,13 +17,27 @@ class Controller {
       const { username, email, password, confirmPassword, phoneNumber, about } =
         req.body
 
+      const formattedPhoneNumber = formatPhoneNumber(phoneNumber || "")
+
+      if (!/^\S+@\S+\.\S+$/.test(email || "")) {
+        throw { name: "Format Email Tidak Valid" }
+      }
+
+      if (!/^0\d{9,14}$/.test(formattedPhoneNumber)) {
+        throw { name: "Format Nomor Telepon Tidak Valid" }
+      }
+
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/.test(password || "")) {
+        throw { name: "Format Password Tidak Valid" }
+      }
+
       let code = Math.floor(1000 + Math.random() * 9000)
 
       let body = {
         username,
         email,
         password,
-        phoneNumber: formatPhoneNumber(phoneNumber),
+        phoneNumber: formattedPhoneNumber,
         about,
         code,
         failed: 0,
@@ -48,20 +66,20 @@ class Controller {
   // LOGIN
   static async login(req, res, next) {
     try {
-      const { email, password } = req.body
+      const { phoneNumber, password } = req.body
 
       const data = await User.findOne({
         where: {
-          email,
+          phoneNumber: formatPhoneNumber(phoneNumber || ""),
         },
       })
 
       if (!data) {
-        throw { name: "Email/Password Salah" }
+        throw { name: "Nomor Telepon/Password Salah" }
       }
 
       if (!comparePassword(password, data.password)) {
-        throw { name: "Email/Password Salah" }
+        throw { name: "Nomor Telepon/Password Salah" }
       }
 
       const payload = {
@@ -73,8 +91,10 @@ class Controller {
       res.status(201).json({
         statusCode: 201,
         message: `Selamat ${data.username}, anda Berhasil Login`,
+        id: data.id,
         username: data.username,
         email: data.email,
+        phoneNumber: data.phoneNumber,
         authorization: authorization,
       })
     } catch (error) {
@@ -143,7 +163,7 @@ class Controller {
   // GET ONE USER
   static async getProfile(req, res, next) {
     try {
-      const { id } = req.user.id
+      const { id } = req.user
       const data = await User.findOne({
         where: {
           id,
@@ -218,6 +238,77 @@ class Controller {
       res.status(200).json({
         statusCode: 200,
         message: "Berhasil Memperbaharui Data User",
+      })
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  // UPDATE PROFILE
+  static async updateProfile(req, res, next) {
+    try {
+      const { id } = req.user
+      const {
+        username,
+        phoneNumber,
+        about,
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      } = req.body
+      const formattedPhoneNumber = formatPhoneNumber(phoneNumber || "")
+
+      if (!/^0\d{9,14}$/.test(formattedPhoneNumber)) {
+        throw { name: "Format Nomor Telepon Tidak Valid" }
+      }
+
+      const data = await User.findOne({ where: { id } })
+
+      if (!data) {
+        throw { name: "Id User Tidak Ditemukan" }
+      }
+
+      const updatePayload = {
+        username,
+        phoneNumber: formattedPhoneNumber,
+        about,
+        avatar: req.file ? req.file.path : data.avatar,
+      }
+
+      if (newPassword || confirmPassword || currentPassword) {
+        if (!currentPassword) {
+          throw { name: "Mohon Masukkan Password Sebelumnya" }
+        }
+
+        if (!comparePassword(currentPassword, data.password)) {
+          throw { name: "Password Sebelumnya Salah" }
+        }
+
+        if (newPassword !== confirmPassword) {
+          throw { name: "Password dan Konfirmasi Password Tidak Sama" }
+        }
+
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$/.test(newPassword || "")) {
+          throw { name: "Format Password Tidak Valid" }
+        }
+
+        updatePayload.password = hashingPassword(newPassword)
+      }
+
+      await User.update(
+        updatePayload,
+        { where: { id } },
+      )
+
+      const updatedProfile = await User.findOne({
+        where: { id },
+        attributes: { exclude: ["password"] },
+      })
+
+      res.status(200).json({
+        statusCode: 200,
+        message: "Berhasil Memperbaharui Profile",
+        data: updatedProfile,
       })
     } catch (error) {
       next(error)

@@ -1,4 +1,6 @@
-const { User, GroupMessage, Group } = require("../models")
+const { exclude } = require("../helpers/helper")
+const { decryptRecord, decryptRecords, encryptMessage } = require("../helpers/messageCrypto")
+const { User, GroupMessage, Group, GroupMember } = require("../models")
 class Controller {
   // GET ALL
   static async getAllChat(req, res, next) {
@@ -6,9 +8,14 @@ class Controller {
       const { GroupId } = req.params
 
       const dataGroup = await Group.findOne({ where: { id: GroupId } })
+      const member = await GroupMember.findOne({ where: { GroupId, UserId: req.user.id } })
 
       if (!dataGroup) {
         throw { name: "Id Group Tidak Ditemukan" }
+      }
+
+      if (!member) {
+        throw { name: "Maaf Anda Bukan Anggota Group", groupName: dataGroup.name }
       }
 
       const dataChatGroup = await GroupMessage.findAll({
@@ -30,7 +37,7 @@ class Controller {
       res.status(200).json({
         statusCode: 200,
         message: "Berhasil Menampilkan Chat Group",
-        data: dataChatGroup,
+        data: decryptRecords(dataChatGroup),
       })
     } catch (error) {
       next(error)
@@ -64,7 +71,7 @@ class Controller {
       res.status(200).json({
         statusCode: 200,
         message: "Berhasil Menampilkan Chat",
-        data: dataChat,
+        data: decryptRecord(dataChat),
       })
     } catch (error) {
       next(error)
@@ -81,9 +88,14 @@ class Controller {
       const dataSender = await User.findOne({ where: { id: SenderId } })
 
       const dataGroup = await Group.findOne({ where: { id: GroupId } })
+      const member = await GroupMember.findOne({ where: { GroupId, UserId: SenderId } })
 
       if (!dataGroup) {
         throw { name: "Id Group Tidak Ditemukan" }
+      }
+
+      if (!member) {
+        throw { name: "Maaf Anda Bukan Anggota Group", groupName: dataGroup.name }
       }
 
       if (!dataSender) {
@@ -95,7 +107,7 @@ class Controller {
       const dataChat = await GroupMessage.create({
         GroupId,
         SenderId,
-        message,
+        message: encryptMessage(message),
         messageImage: messageImage,
         readMessageStatus: false,
         isUpdate: false,
@@ -107,7 +119,7 @@ class Controller {
       res.status(201).json({
         statusCode: 201,
         message: "Berhasil Membuat Chat Group Baru",
-        data: dataChat,
+        data: decryptRecord(dataChat),
       })
     } catch (error) {
       next(error)
@@ -130,7 +142,16 @@ class Controller {
         throw { name: "Id Chat Tidak Ditemukan" }
       }
 
-      await GroupMessage.update({ message, isUpdate: true }, { where: { id } })
+      if (dataChat.SenderId !== req.user.id) {
+        throw { name: "Forbidden" }
+      }
+
+      const nextMessage = req.body.action === "withdraw" ? "Pesan ditarik" : message
+
+      await GroupMessage.update(
+        { message: encryptMessage(nextMessage), messageImage: req.body.action === "withdraw" ? "" : dataChat.messageImage, isUpdate: true },
+        { where: { id } },
+      )
 
       res.status(200).json({
         statusCode: 200,
@@ -178,6 +199,10 @@ class Controller {
 
       if (!dataChat) {
         throw { name: "Id Chat Tidak Ditemukan" }
+      }
+
+      if (dataChat.SenderId !== req.user.id) {
+        throw { name: "Forbidden" }
       }
 
       await GroupMessage.destroy({

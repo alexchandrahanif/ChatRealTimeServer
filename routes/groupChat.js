@@ -1,11 +1,13 @@
 const Controller = require("../controllers/groupChat")
+const upload = require("../helpers/multer")
 const authentication = require("../middleware/authentication")
 
 const groupChatRouter = require("express").Router()
+const file = upload()
 
 groupChatRouter.get("/personal/:GroupId", authentication, Controller.getAllChat)
 groupChatRouter.get("/:id", authentication, Controller.getOneChat)
-groupChatRouter.post("/", authentication, Controller.createChat)
+groupChatRouter.post("/", authentication, file.single("messageImage"), Controller.createChat)
 groupChatRouter.patch("/:id", authentication, Controller.updateChat)
 groupChatRouter.delete("/:id", authentication, Controller.deleteChat)
 

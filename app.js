@@ -9,11 +9,13 @@ const express = require("express")
 const http = require("http")
 const socketIO = require("socket.io")
 const { verifyAccessToken } = require("./helpers/helper")
+const { User } = require("./models")
 
 const app = express()
 const server = http.createServer(app)
 const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:5173"
 const io = socketIO(server, { cors: { origin: clientOrigin } })
+app.set("io", io)
 
 const port = process.env.PORT || 3000
 
@@ -44,8 +46,9 @@ io.on("connection", (socket) => {
 
       userId = data.id
       onlineUsers[userId] = true
-
-      io.emit("updateOnlineStatus", { userId, status: true })
+      User.update({ statusActive: true }, { where: { id: userId } })
+        .then(() => io.emit("updateOnlineStatus", { userId, status: true, lastLogin: null }))
+        .catch(() => io.emit("updateOnlineStatus", { userId, status: true, lastLogin: null }))
     } catch (error) {
       socket.disconnect(true)
       return
@@ -65,8 +68,13 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     if (userId) {
       onlineUsers[userId] = false
-
-      io.emit("updateOnlineStatus", { userId, status: false })
+      const lastLogin = new Date()
+      User.update(
+        { statusActive: false, lastLogin },
+        { where: { id: userId } },
+      )
+        .then(() => io.emit("updateOnlineStatus", { userId, status: false, lastLogin }))
+        .catch(() => io.emit("updateOnlineStatus", { userId, status: false, lastLogin }))
     }
   })
 })

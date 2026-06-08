@@ -20,12 +20,24 @@ const handleError = (err, req, res, next) => {
   else if (err.name === "Mohon Masukkan Password") {
     code = 400
     message = "Mohon Masukkan Password"
+  } else if (err.name === "Mohon Masukkan Password Sebelumnya") {
+    code = 400
+    message = "Mohon Masukkan Password Sebelumnya"
   } else if (err.name === "Mohon Masukkan Email") {
     code = 400
     message = "Mohon Masukkan Email"
   } else if (err.name === "Password dan Konfirmasi Password Tidak Sama") {
     code = 400
     message = "Password dan Konfirmasi Password Tidak Sama"
+  } else if (err.name === "Format Email Tidak Valid") {
+    code = 400
+    message = "Format Email Tidak Valid"
+  } else if (err.name === "Format Nomor Telepon Tidak Valid") {
+    code = 400
+    message = "Format Nomor Telepon Tidak Valid"
+  } else if (err.name === "Format Password Tidak Valid") {
+    code = 400
+    message = "Password minimal 8 karakter, harus ada huruf besar, huruf kecil, dan karakter spesial"
   } else if (err.name === "Maaf, Kode Anda Sudah Kadaluarsa") {
     code = 400
     message = `Maaf, Kode Anda Sudah Kadaluarsa ${
@@ -64,6 +76,12 @@ const handleError = (err, req, res, next) => {
   } else if (err.name === "Email/Password Salah") {
     code = 401
     message = "Email/Password Salah"
+  } else if (err.name === "Nomor Telepon/Password Salah") {
+    code = 401
+    message = "Nomor Telepon/Password Salah"
+  } else if (err.name === "Password Sebelumnya Salah") {
+    code = 401
+    message = "Password Sebelumnya Salah"
   } else if (err.name === "Invalid authorization") {
     code = 401
     message = "Akses Token Tidak Ada"
