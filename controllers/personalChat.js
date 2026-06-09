@@ -35,9 +35,18 @@ class Controller {
         if (!otherUser || seenUserIds.has(otherUser.id)) continue
 
         seenUserIds.add(otherUser.id)
+        const unreadCount = await PersonalMessage.count({
+          where: {
+            SenderId: otherUser.id,
+            ReceiverId: req.user.id,
+            readMessageStatus: false,
+          },
+        })
+
         conversations.push({
           user: otherUser,
           lastMessage: decryptRecord(message),
+          unreadCount,
         })
       }
 
@@ -153,31 +162,37 @@ class Controller {
         throw { name: "Id User Tidak Ditemukan" }
       }
 
-      let messageImage = req.file ? req.file.path : ""
+      const files = req.files?.length ? req.files : req.file ? [req.file] : []
+      const images = files.map((file) => file.path)
 
       const encryptedMessage = encryptMessage(message)
 
-      const dataChat = await PersonalMessage.create({
-        SenderId,
-        ReceiverId,
-        message: encryptedMessage,
-        messageImage: messageImage,
-        readMessageStatus: false,
-        isUpdate: false,
-      })
+      const payloads = images.length
+        ? images.map((messageImage, index) => ({
+            SenderId,
+            ReceiverId,
+            message: index === 0 ? encryptedMessage : encryptMessage(""),
+            messageImage,
+            readMessageStatus: false,
+            isUpdate: false,
+          }))
+        : [{ SenderId, ReceiverId, message: encryptedMessage, messageImage: "", readMessageStatus: false, isUpdate: false }]
+
+      const createdChats = await PersonalMessage.bulkCreate(payloads, { returning: true })
+      const dataChat = createdChats[0]
 
       req.app.get("io")?.emit("newPersonalMessage", {
         SenderId,
         ReceiverId,
         message,
-        messageImage,
+        messageImage: images[0] || "",
         data: decryptRecord(dataChat),
       })
 
       res.status(201).json({
         statusCode: 201,
         message: "Berhasil Membuat Chat Baru",
-        data: decryptRecord(dataChat),
+        data: createdChats.map(decryptRecord),
       })
     } catch (error) {
       next(error)
@@ -200,7 +215,7 @@ class Controller {
         throw { name: "Id Chat Tidak Ditemukan" }
       }
 
-      if (dataChat.SenderId !== req.user.id) {
+      if (String(dataChat.SenderId) !== String(req.user.id)) {
         throw { name: "Forbidden" }
       }
 
@@ -231,7 +246,7 @@ class Controller {
     try {
       const { SenderId } = req.params
 
-      const dataChat = await PersonalMessage.update(
+      await PersonalMessage.update(
         { readMessageStatus: true },
         {
           where: {
@@ -240,6 +255,11 @@ class Controller {
           },
         },
       )
+
+      req.app.get("io")?.emit("personalMessageUpdated", {
+        SenderId,
+        ReceiverId: req.user.id,
+      })
 
       await res.status(200).json({
         statusCode: 200,
@@ -265,7 +285,7 @@ class Controller {
         throw { name: "Id Chat Tidak Ditemukan" }
       }
 
-      if (dataChat.SenderId !== req.user.id) {
+      if (String(dataChat.SenderId) !== String(req.user.id)) {
         throw { name: "Forbidden" }
       }
 

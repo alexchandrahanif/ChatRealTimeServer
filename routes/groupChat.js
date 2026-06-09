@@ -7,7 +7,7 @@ const file = upload()
 
 groupChatRouter.get("/personal/:GroupId", authentication, Controller.getAllChat)
 groupChatRouter.get("/:id", authentication, Controller.getOneChat)
-groupChatRouter.post("/", authentication, file.single("messageImage"), Controller.createChat)
+groupChatRouter.post("/", authentication, file.array("messageImage", 10), Controller.createChat)
 groupChatRouter.patch("/:id", authentication, Controller.updateChat)
 groupChatRouter.delete("/:id", authentication, Controller.deleteChat)
 

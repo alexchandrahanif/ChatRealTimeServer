@@ -15,7 +15,7 @@ personalCharRouter.get("/:id", authentication, Controller.getOneChat)
 personalCharRouter.post(
   "/",
   authentication,
-  file.single("messageImage"),
+  file.array("messageImage", 10),
   Controller.createChat,
 )
 personalCharRouter.patch("/:id", authentication, Controller.updateChat)

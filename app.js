@@ -10,6 +10,7 @@ const http = require("http")
 const socketIO = require("socket.io")
 const { verifyAccessToken } = require("./helpers/helper")
 const { User } = require("./models")
+const StoryController = require("./controllers/story")
 
 const app = express()
 const server = http.createServer(app)
@@ -33,7 +34,7 @@ app.use("/", router)
 app.use("/upload", express.static("upload"))
 app.use(handleError)
 
-const onlineUsers = {}
+const onlineUsers = new Map()
 
 io.on("connection", (socket) => {
   const { token } = socket.handshake.query
@@ -45,7 +46,7 @@ io.on("connection", (socket) => {
       const data = verifyAccessToken(token)
 
       userId = data.id
-      onlineUsers[userId] = true
+      onlineUsers.set(userId, (onlineUsers.get(userId) || 0) + 1)
       User.update({ statusActive: true }, { where: { id: userId } })
         .then(() => io.emit("updateOnlineStatus", { userId, status: true, lastLogin: null }))
         .catch(() => io.emit("updateOnlineStatus", { userId, status: true, lastLogin: null }))
@@ -55,24 +56,28 @@ io.on("connection", (socket) => {
     }
   }
 
-  socket.on("typing", () => {
+  socket.on("typing", (payload = {}) => {
     if (!userId) return
-    io.emit("userTyping", { userId, isTyping: true })
+    io.emit("userTyping", { userId, ReceiverId: payload.ReceiverId, isTyping: true })
   })
 
-  socket.on("stopTyping", () => {
+  socket.on("stopTyping", (payload = {}) => {
     if (!userId) return
-    io.emit("userTyping", { userId, isTyping: false })
+    io.emit("userTyping", { userId, ReceiverId: payload.ReceiverId, isTyping: false })
   })
 
   socket.on("disconnect", () => {
     if (userId) {
       onlineUsers[userId] = false
+      const remainingConnections = Math.max((onlineUsers.get(userId) || 1) - 1, 0)
+      if (remainingConnections > 0) {
+        onlineUsers.set(userId, remainingConnections)
+        return
+      }
+
+      onlineUsers.delete(userId)
       const lastLogin = new Date()
-      User.update(
-        { statusActive: false, lastLogin },
-        { where: { id: userId } },
-      )
+      User.update({ statusActive: false, lastLogin }, { where: { id: userId } })
         .then(() => io.emit("updateOnlineStatus", { userId, status: false, lastLogin }))
         .catch(() => io.emit("updateOnlineStatus", { userId, status: false, lastLogin }))
     }
@@ -82,3 +87,7 @@ io.on("connection", (socket) => {
 server.listen(port, () => {
   console.log(`REAL TIME CHAT SERVER CONNECTED!`)
 })
+
+setInterval(() => {
+  StoryController.cleanupExpiredStories().catch(() => {})
+}, 60 * 60 * 1000)

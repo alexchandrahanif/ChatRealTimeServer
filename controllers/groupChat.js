@@ -102,16 +102,21 @@ class Controller {
         throw { name: "Id User Tidak Ditemukan" }
       }
 
-      let messageImage = req.file ? req.file.path : ""
+      const files = req.files?.length ? req.files : req.file ? [req.file] : []
+      const images = files.map((file) => file.path)
+      const payloads = images.length
+        ? images.map((messageImage, index) => ({
+            GroupId,
+            SenderId,
+            message: index === 0 ? encryptMessage(message) : encryptMessage(""),
+            messageImage,
+            readMessageStatus: false,
+            isUpdate: false,
+          }))
+        : [{ GroupId, SenderId, message: encryptMessage(message), messageImage: "", readMessageStatus: false, isUpdate: false }]
 
-      const dataChat = await GroupMessage.create({
-        GroupId,
-        SenderId,
-        message: encryptMessage(message),
-        messageImage: messageImage,
-        readMessageStatus: false,
-        isUpdate: false,
-      })
+      const createdChats = await GroupMessage.bulkCreate(payloads, { returning: true })
+      const dataChat = createdChats[0]
 
       // Kirim pesan menggunakan Socket.IO
       // io.emit("chat message", { SenderId, ReceiverId, message, messageImage })
@@ -119,7 +124,7 @@ class Controller {
       res.status(201).json({
         statusCode: 201,
         message: "Berhasil Membuat Chat Group Baru",
-        data: decryptRecord(dataChat),
+        data: createdChats.map(decryptRecord),
       })
     } catch (error) {
       next(error)
@@ -142,7 +147,7 @@ class Controller {
         throw { name: "Id Chat Tidak Ditemukan" }
       }
 
-      if (dataChat.SenderId !== req.user.id) {
+      if (String(dataChat.SenderId) !== String(req.user.id)) {
         throw { name: "Forbidden" }
       }
 
@@ -201,7 +206,7 @@ class Controller {
         throw { name: "Id Chat Tidak Ditemukan" }
       }
 
-      if (dataChat.SenderId !== req.user.id) {
+      if (String(dataChat.SenderId) !== String(req.user.id)) {
         throw { name: "Forbidden" }
       }
 
